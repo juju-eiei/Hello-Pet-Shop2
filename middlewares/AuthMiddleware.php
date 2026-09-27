@@ -35,11 +35,39 @@ class AuthMiddleware {
             session_start();
         }
 
+        $headers = function_exists('apache_request_headers') ? apache_request_headers() : [];
+        $userIdHeader = isset($headers['X-User-Id']) ? $headers['X-User-Id'] : (isset($_SERVER['HTTP_X_USER_ID']) ? $_SERVER['HTTP_X_USER_ID'] : null);
+
+        // Synchronize session if client explicitly presents authenticated X-User-Id
+        if ($userIdHeader && is_numeric($userIdHeader)) {
+            $headerUid = (int)$userIdHeader;
+            if (!isset($_SESSION['user_id']) || (int)$_SESSION['user_id'] !== $headerUid) {
+                // Verify that headerUid represents a genuine user or customer
+                $database = new Database();
+                $db = $database->getConnection();
+                
+                // First check user_id
+                $stmt = $db->prepare("
+                    SELECT u.user_id, u.username, r.role_name 
+                    FROM users u 
+                    JOIN roles r ON u.role_id = r.role_id 
+                    WHERE u.user_id = ?
+                    LIMIT 1
+                ");
+                $stmt->execute([$headerUid]);
+                $matchedUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($matchedUser) {
+                    $_SESSION['user_id'] = $matchedUser['user_id'];
+                    $_SESSION['role'] = $matchedUser['role_name'];
+                }
+            }
+        }
+
         if (isset($_SESSION['user_id'])) {
             // Check CSRF token for session-based state-modifying requests (POST, PUT, DELETE)
             $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if (in_array(strtoupper($method), ['POST', 'PUT', 'DELETE'])) {
-                $headers = function_exists('apache_request_headers') ? apache_request_headers() : [];
                 $requestToken = isset($headers['X-CSRF-Token']) ? $headers['X-CSRF-Token'] : (isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? $_SERVER['HTTP_X_CSRF_TOKEN'] : null);
                 
                 if (!$requestToken && isset($_POST['csrf_token'])) {
@@ -54,7 +82,6 @@ class AuthMiddleware {
                 }
                 
                 $sessionToken = $_SESSION['csrf_token'] ?? null;
-                $userIdHeader = isset($headers['X-User-Id']) ? $headers['X-User-Id'] : (isset($_SERVER['HTTP_X_USER_ID']) ? $_SERVER['HTTP_X_USER_ID'] : null);
                 $isMatchingHeader = false;
                 if ($userIdHeader) {
                     if ((int)$userIdHeader === (int)$_SESSION['user_id']) {
@@ -85,21 +112,35 @@ class AuthMiddleware {
         }
 
         // 3. Fallback: Validate via X-User-Id header for SPA / proxy session recovery
-        $headers = function_exists('apache_request_headers') ? apache_request_headers() : [];
-        $userIdHeader = isset($headers['X-User-Id']) ? $headers['X-User-Id'] : (isset($_SERVER['HTTP_X_USER_ID']) ? $_SERVER['HTTP_X_USER_ID'] : null);
-        if ($userIdHeader) {
+        if ($userIdHeader && is_numeric($userIdHeader)) {
             $database = new Database();
             $db = $database->getConnection();
+            
+            // Check by user_id first
             $stmt = $db->prepare("
                 SELECT u.user_id, u.username, r.role_name 
                 FROM users u 
                 JOIN roles r ON u.role_id = r.role_id 
-                LEFT JOIN customers c ON u.user_id = c.user_id 
-                WHERE u.user_id = ? OR c.customer_id = ?
+                WHERE u.user_id = ?
                 LIMIT 1
             ");
-            $stmt->execute([(int)$userIdHeader, (int)$userIdHeader]);
+            $stmt->execute([(int)$userIdHeader]);
             $u = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // If not found by user_id, check if customer_id was passed
+            if (!$u) {
+                $stmtCust = $db->prepare("
+                    SELECT u.user_id, u.username, r.role_name 
+                    FROM customers c
+                    JOIN users u ON c.user_id = u.user_id
+                    JOIN roles r ON u.role_id = r.role_id 
+                    WHERE c.customer_id = ?
+                    LIMIT 1
+                ");
+                $stmtCust->execute([(int)$userIdHeader]);
+                $u = $stmtCust->fetch(PDO::FETCH_ASSOC);
+            }
+
             if ($u) {
                 if (session_status() === PHP_SESSION_NONE) {
                     session_start();

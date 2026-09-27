@@ -10,7 +10,7 @@ class Database {
 
     public function __construct() {
         $this->host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'localhost');
-        $this->db_name = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?? 'hello_pet_shop');
+        $this->db_name = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?? 'hello_pet_shop2');
         $this->username = getenv('DB_USER') ?: ($_ENV['DB_USER'] ?? 'root');
         $this->password = getenv('DB_PASS') !== false ? getenv('DB_PASS') : ($_ENV['DB_PASS'] ?? '');
     }

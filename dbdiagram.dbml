@@ -30,6 +30,7 @@ Table employees {
   user_id int [unique]
   first_name varchar
   last_name varchar
+  position varchar
   phone varchar
   address text
   base_salary decimal(10,2) [default: 0.00]
