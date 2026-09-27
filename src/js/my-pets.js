@@ -64,8 +64,13 @@ export function initMyPetsPage() {
     // =============== Core Functions ===============
 
     async function loadPets() {
-        // 1. Instant Cache Render: If pets data is already in cache, render immediately (0ms)
-        const cachedPetsStr = localStorage.getItem('myPetsData');
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        let customerId = user?.customer_id;
+
+        // 1. Instant Cache Render: If pets data is already in customer-specific cache
+        const cacheKey = customerId ? `myPetsData_${customerId}` : 'myPetsData';
+        const cachedPetsStr = localStorage.getItem(cacheKey);
         if (cachedPetsStr) {
             try {
                 const cached = JSON.parse(cachedPetsStr);
@@ -75,10 +80,6 @@ export function initMyPetsPage() {
                 }
             } catch (e) {}
         }
-
-        const userStr = localStorage.getItem('user');
-        const user = userStr ? JSON.parse(userStr) : null;
-        let customerId = user?.customer_id;
         
         if (!customerId) {
             try {
@@ -100,7 +101,7 @@ export function initMyPetsPage() {
                 const res = await fetch(`/api/customers/details?id=${customerId}`);
                 if (res.ok) {
                     const result = await res.json();
-                    if (result.data && result.data.pets) {
+                    if (result.data && Array.isArray(result.data.pets)) {
                         pets = result.data.pets.map(p => ({
                             id: String(p.pet_id),
                             name: p.pet_name,
@@ -122,12 +123,18 @@ export function initMyPetsPage() {
             }
         }
 
-        const petsStr = localStorage.getItem('myPetsData');
+        const petsStr = customerId ? localStorage.getItem(`myPetsData_${customerId}`) : localStorage.getItem('myPetsData');
         pets = petsStr ? JSON.parse(petsStr) : [];
         renderPets();
     }
 
     function savePetsToLocal() {
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        const customerId = user?.customer_id;
+        if (customerId) {
+            localStorage.setItem(`myPetsData_${customerId}`, JSON.stringify(pets));
+        }
         localStorage.setItem('myPetsData', JSON.stringify(pets));
     }
 

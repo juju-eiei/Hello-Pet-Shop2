@@ -31,6 +31,8 @@ class AuthController {
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
+            // Clear any lingering session keys from previously logged-in accounts
+            $_SESSION = [];
             session_regenerate_id(true); // Regenerate session ID to prevent Session Fixation
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role_name'];
@@ -125,6 +127,7 @@ class AuthController {
         $userId = $this->userModel->create($data);
 
         if ($userId) {
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
             RateLimiter::hit('register:' . $ip, 600);
             Response::json(201, "สมัครสมาชิกสำเร็จ", ["user_id" => $userId]);
         } else {

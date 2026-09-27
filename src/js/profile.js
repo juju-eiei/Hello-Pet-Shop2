@@ -1,4 +1,4 @@
-import { showToast, getUserProfileData, saveUserProfileData } from './utils.js';
+import { showToast, getUserProfileData, saveUserProfileData, performLogout, getUserOrdersData, saveUserOrdersData } from './utils.js';
 import { updateNavProfile } from './main.js';
 
 export function initProfilePage() {
@@ -123,30 +123,31 @@ export function initProfilePage() {
                 const jsonRes = await userRes.json();
                 const cust = jsonRes.data || jsonRes;
                 if (cust) {
-                    if (cust.phone && (!inputPhone.value || inputPhone.value.trim() === '')) {
-                        inputPhone.value = cust.phone;
-                        profile.phone = cust.phone;
+                    const custName = cust.name || (cust.first_name ? (cust.first_name + (cust.last_name ? ' ' + cust.last_name : '')) : '');
+                    if (custName) {
+                        inputName.value = custName;
+                        if (displayName) displayName.textContent = custName;
+                        profile.name = custName;
                     }
-                    if (cust.name && (!inputName.value || inputName.value.trim() === '' || inputName.value.trim() === 'ผู้ใช้ทั่วไป')) {
-                        inputName.value = cust.name;
-                        if (displayName) displayName.textContent = cust.name;
-                        profile.name = cust.name;
+                    if (cust.phone !== undefined) {
+                        inputPhone.value = cust.phone || '';
+                        profile.phone = cust.phone || '';
                     }
-                    if (cust.email && (!inputEmail.value || inputEmail.value.trim() === '')) {
-                        inputEmail.value = cust.email;
-                        profile.email = cust.email;
+                    if (cust.email !== undefined) {
+                        inputEmail.value = cust.email || '';
+                        profile.email = cust.email || '';
                     }
-                    if (cust.address && (!inputAddress.value || inputAddress.value.trim() === '')) {
-                        inputAddress.value = cust.address;
-                        profile.address = cust.address;
+                    if (cust.address !== undefined) {
+                        inputAddress.value = cust.address || '';
+                        profile.address = cust.address || '';
                     }
-                    if (cust.province && (!inputProvince.value || inputProvince.value.trim() === '')) {
-                        inputProvince.value = cust.province;
-                        profile.province = cust.province;
+                    if (cust.province !== undefined) {
+                        inputProvince.value = cust.province || '';
+                        profile.province = cust.province || '';
                     }
-                    if (cust.zipcode && (!inputZipcode.value || inputZipcode.value.trim() === '')) {
-                        inputZipcode.value = cust.zipcode;
-                        profile.zipcode = cust.zipcode;
+                    if (cust.zipcode !== undefined) {
+                        inputZipcode.value = cust.zipcode || '';
+                        profile.zipcode = cust.zipcode || '';
                     }
 
                     // Save synced profile to local isolated store
@@ -155,9 +156,11 @@ export function initProfilePage() {
                     // Also sync to main user object in localStorage
                     try {
                         const curUser = JSON.parse(localStorage.getItem('user') || '{}');
-                        curUser.phone = cust.phone || curUser.phone || '';
+                        curUser.phone = cust.phone !== undefined ? cust.phone : (curUser.phone || '');
                         curUser.first_name = cust.first_name || cust.name || curUser.first_name || '';
-                        curUser.customer_id = cust.id || curUser.customer_id;
+                        if (cust.last_name !== undefined) curUser.last_name = cust.last_name;
+                        if (cust.email) curUser.email = cust.email;
+                        curUser.customer_id = cust.id || cust.customer_id || curUser.customer_id;
                         localStorage.setItem('user', JSON.stringify(curUser));
                     } catch(e) {}
                 }
@@ -209,8 +212,10 @@ export function initProfilePage() {
 
         // 3. Fallback: Calculate from orders only if DB points could not be fetched
         if (!fetchedFromDb) {
-            const storedOrders = localStorage.getItem('myOrders');
             let orders = [];
+            const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const uid = curUser.user_id ? String(curUser.user_id) : null;
+            const storedOrders = uid ? localStorage.getItem(`myOrders_${uid}`) : null;
             if (storedOrders) {
                 try { orders = JSON.parse(storedOrders); } catch (e) {}
             }
@@ -238,7 +243,9 @@ export function initProfilePage() {
     async function updateOrderBadges() {
         let orders = getUserOrdersData();
         if (!orders || orders.length === 0) {
-            const storedOrders = localStorage.getItem('myOrders');
+            const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const uid = curUser.user_id ? String(curUser.user_id) : null;
+            const storedOrders = uid ? localStorage.getItem(`myOrders_${uid}`) : null;
             if (storedOrders) {
                 try {
                     orders = JSON.parse(storedOrders);
@@ -515,10 +522,9 @@ export function initProfilePage() {
 
     // 5. Main Logout Button
     if (mainLogoutBtn) {
-        mainLogoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('user');
-            localStorage.removeItem('cart');
-            window.location.href = '/login';
+        mainLogoutBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await performLogout();
         });
     }
 

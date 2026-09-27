@@ -11,15 +11,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/juju-eiei/Hello_Pet_Shop.git"
+    "url": "git+https://github.com/juju-eiei/Hello-Pet-Shop2.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/juju-eiei/Hello_Pet_Shop/issues"
+    "url": "https://github.com/juju-eiei/Hello-Pet-Shop2/issues"
   },
-  "homepage": "https://github.com/juju-eiei/Hello_Pet_Shop#readme",
+  "homepage": "https://github.com/juju-eiei/Hello-Pet-Shop2#readme",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "autoprefixer": "^10.4.27",

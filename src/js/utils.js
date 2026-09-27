@@ -382,3 +382,46 @@ export function showRegisterPrompt(customMessage = 'กรุณาสมัค�
     }
 }
 
+/**
+ * Universal safe logout helper:
+ * Clears server session, cookies, and all user-specific / global caches
+ */
+export async function performLogout() {
+    try {
+        await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {
+        console.warn("Server logout request failed:", e);
+    }
+
+    try {
+        const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const uid = curUser.user_id ? String(curUser.user_id) : null;
+        if (uid) {
+            localStorage.removeItem(`userProfileData_${uid}`);
+            localStorage.removeItem(`myOrders_${uid}`);
+            localStorage.removeItem(`cart_${uid}`);
+            localStorage.removeItem(`myPetsData_${uid}`);
+        }
+        if (curUser.username) {
+            localStorage.removeItem(`userProfileData_${curUser.username}`);
+            localStorage.removeItem(`myOrders_${curUser.username}`);
+            localStorage.removeItem(`cart_${curUser.username}`);
+        }
+    } catch (e) {}
+
+    localStorage.removeItem('user');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('myOrders');
+    localStorage.removeItem('myPetsData');
+    localStorage.removeItem('userProfileData');
+    localStorage.removeItem('savedAccountProfiles');
+    localStorage.removeItem('savedUserCarts');
+    localStorage.removeItem('productsMenuOpen');
+    localStorage.removeItem('staffProductsMenuOpen');
+
+    // Expire PHPSESSID cookie on client-side
+    document.cookie = "PHPSESSID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+    window.location.href = '/login';
+}
+

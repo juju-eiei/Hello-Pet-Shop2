@@ -110,41 +110,28 @@
                     const loggedInUser = result.data || result;
                     const userId = loggedInUser.user_id ? String(loggedInUser.user_id) : String(loggedInUser.username || 'default');
 
-                    // Clear global temporary fallback keys from previous accounts
-                    try { localStorage.removeItem('userProfileData'); } catch(e) {}
-                    
-                    let savedProfile = {};
+                    // Clear previous user's global session caches
                     try {
-                        const accountProfiles = JSON.parse(localStorage.getItem('savedAccountProfiles') || '{}');
-                        savedProfile = accountProfiles[userId] || (loggedInUser.username ? accountProfiles[loggedInUser.username] : {}) || {};
+                        localStorage.removeItem('userProfileData');
+                        localStorage.removeItem('myOrders');
+                        localStorage.removeItem('myPetsData');
+                        localStorage.removeItem('savedAccountProfiles');
                     } catch(e) {}
-
-                    if (savedProfile.profileImage) {
-                        loggedInUser.profile_image = savedProfile.profileImage;
-                        loggedInUser.profileImage = savedProfile.profileImage;
-                    }
-                    if (savedProfile.address) loggedInUser.address = savedProfile.address;
-                    if (savedProfile.phone) {
-                        loggedInUser.phone = savedProfile.phone;
-                    } else if (loggedInUser.phone) {
-                        savedProfile.phone = loggedInUser.phone;
-                    }
-                    if (savedProfile.name) {
-                        loggedInUser.username = savedProfile.name;
-                        loggedInUser.first_name = savedProfile.name;
-                    }
 
                     localStorage.setItem('user', JSON.stringify(loggedInUser));
 
-                    // Sync initial profile state in localStorage so getUserProfileData has phone
+                    // Sync initial profile state in localStorage so getUserProfileData has name, phone, email
                     try {
                         const userKey = `userProfileData_${userId}`;
-                        const currentProf = JSON.parse(localStorage.getItem(userKey) || '{}');
+                        const displayNameVal = loggedInUser.first_name ? (loggedInUser.first_name + (loggedInUser.last_name ? ' ' + loggedInUser.last_name : '')) : (loggedInUser.username || '');
                         localStorage.setItem(userKey, JSON.stringify({
-                            ...currentProf,
-                            name: loggedInUser.first_name || loggedInUser.username || currentProf.name || '',
-                            phone: loggedInUser.phone || currentProf.phone || '',
-                            email: loggedInUser.email || currentProf.email || ''
+                            name: displayNameVal,
+                            phone: loggedInUser.phone || '',
+                            email: loggedInUser.email || '',
+                            address: loggedInUser.address || '',
+                            province: loggedInUser.province || '',
+                            zipcode: loggedInUser.zipcode || '',
+                            profileImage: loggedInUser.profile_image || loggedInUser.profileImage || ''
                         }));
                     } catch(e) {}
 

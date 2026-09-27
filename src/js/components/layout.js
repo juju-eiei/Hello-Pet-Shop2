@@ -1,4 +1,5 @@
 import { menuConfig } from '../config/menu.js';
+import { performLogout } from '../utils.js';
 
 function normalizeRoute(urlOrPath) {
     if (!urlOrPath) return '';
@@ -466,15 +467,7 @@ function bindLayoutEvents() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async (e) => {
             e.preventDefault();
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-            } catch (err) {}
-            localStorage.removeItem('user');
-            localStorage.removeItem('userProfileData');
-            localStorage.removeItem('productsMenuOpen');
-            localStorage.removeItem('staffProductsMenuOpen');
-            localStorage.removeItem('csrf_token');
-            window.location.href = '/login';
+            await performLogout();
         });
     }
 }

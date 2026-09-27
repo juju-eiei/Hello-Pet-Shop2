@@ -11,4 +11,7 @@ tmp_*
 scratch_*
 inspect_*
 /uploads
+.vscode/
+create_report_docx.py
+extracted_images/
 

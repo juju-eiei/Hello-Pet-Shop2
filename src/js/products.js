@@ -1,4 +1,4 @@
-import { showToast, escapeHTML, getCartData, saveCartData, showRegisterPrompt } from './utils.js';
+import { showToast, escapeHTML, getCartData, saveCartData, showRegisterPrompt, performLogout } from './utils.js';
 import { updateGlobalCartCount } from './main.js';
 import { getPersonalizedProducts, trackSearchQuery, trackAddToCart } from './recommendationEngine.js';
 
@@ -982,9 +982,9 @@ export function initProductsPage() {
     }
 
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+        logoutBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await performLogout();
         });
     }
 

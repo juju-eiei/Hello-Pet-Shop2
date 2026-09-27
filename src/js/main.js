@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import { initLayout } from './components/layout.js';
 import { initRouter } from './router.js';
 import { initSpaRouter } from './spa.js';
-import { getUserProfileData, getCartData } from './utils.js';
+import { getUserProfileData, getCartData, performLogout } from './utils.js';
 
 // Expose Swal globally
 window.Swal = Swal;
@@ -194,11 +194,9 @@ function initApp() {
     // Global Logout Handler for Customer pages
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', (e) => {
+        logoutBtn.addEventListener('click', async (e) => {
             e.preventDefault();
-            localStorage.removeItem('user');
-            localStorage.removeItem('cart');
-            window.location.href = '/login';
+            await performLogout();
         });
     }
 }
