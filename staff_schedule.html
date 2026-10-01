@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จองตารางงาน - Hello Pet Shop</title>
+    <title>ตารางงานและวันเข้างาน - Hello Pet Shop</title>
     <link rel="stylesheet" href="/css/admin_styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -250,15 +250,15 @@
             <div class="schedule-container">
                 <header class="page-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; position: static; z-index: 1; background: transparent;">
                     <div>
-                        <h1><i class="fas fa-calendar-check" style="color:#4D7C68"></i> จองตารางงานและดูวันเข้างาน</h1>
-                        <p style="color:#64748b; margin-top: 4px;">เลือกเดือนจากทั้ง 12 เดือนในปี หรือคลิกจองตารางงานแบบเต็มทั้งเดือนล่วงหน้า</p>
+                        <h1><i class="fas fa-calendar-check" style="color:#4D7C68"></i> ตารางงานและวันเข้างาน</h1>
+                        <p id="pageSubtitle" style="color:#64748b; margin-top: 4px;">ตรวจสอบตารางงานและวันเข้าทำงาน</p>
                     </div>
                 </header>
 
                 <!-- Admin Employee Selector Bar (Shown if Admin) -->
                 <div id="adminStaffSelectorBar" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                     <div style="font-weight: 700; color: #166534; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-user-cog"></i> <span>เลือกพนักงานที่ต้องการจัดการ/จองตารางงาน:</span>
+                        <i class="fas fa-user-cog"></i> <span>เลือกพนักงานที่ต้องการจัดการ/ดูตารางงาน:</span>
                     </div>
                     <select id="staffSelectDropdown" onchange="onStaffSelectChange(this.value)" style="padding: 8px 16px; border: 1.5px solid #4D7C68; border-radius: 10px; font-weight: 700; font-size: 14px; color: #14532d; outline: none; background: #ffffff;">
                         <!-- Populated by JS -->
@@ -270,15 +270,15 @@
                         <div class="stat-icon" style="background:#dcfce7; color:#15803d;"><i class="fas fa-calendar-check"></i></div>
                         <div class="stat-info">
                             <h4 id="statApproved">0</h4>
-                            <span>อนุมัติลงตารางงานแล้ว</span>
+                            <span>วันทำงานตามตาราง</span>
                         </div>
                     </div>
 
                     <div class="stat-card">
-                        <div class="stat-icon" style="background:#ffedd5; color:#c2410c;"><i class="fas fa-clock"></i></div>
+                        <div class="stat-icon" id="statPendingIcon" style="background:#ffedd5; color:#c2410c;"><i class="fas fa-clock"></i></div>
                         <div class="stat-info">
                             <h4 id="statPending">0</h4>
-                            <span>คำขอจองรอแอดมินอนุมัติ</span>
+                            <span id="statPendingLabel">คำขอจองรออนุมัติ</span>
                         </div>
                     </div>
 
@@ -291,20 +291,39 @@
                     </div>
                 </div>
 
-                <!-- Monthly Staff Full-Month Quick Booking Banner -->
-                <div id="monthlyBookingBanner" style="display: none; background: linear-gradient(135deg, #f0fdf4, #e0f2fe); border: 1.5px solid #bbf7d0; border-radius: 16px; padding: 18px 24px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 4px 12px rgba(77, 124, 104, 0.08);">
-                    <div>
-                        <div style="font-weight: 800; font-size: 15px; color: #166534; display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-calendar-alt fa-lg" style="color: #4D7C68;"></i>
-                            <span>สิทธิ์พนักงานรายเดือน: กดจองตารางงานได้ 1 เดือนเต็ม (10:00 น. - 18:00 น.)</span>
+                <!-- Monthly Staff Informative Banner (No Booking Needed) -->
+                <div id="monthlyInfoBanner" style="display: none; background: linear-gradient(135deg, #f0fdf4, #e0f2fe); border: 1.5px solid #bbf7d0; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 12px rgba(77, 124, 104, 0.08);">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 44px; height: 44px; border-radius: 12px; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+                            <i class="fas fa-user-tie"></i>
                         </div>
-                        <div style="font-size: 13px; color: #475569; margin-top: 4px; font-weight: 600;">
-                            ส่งคำขอจองตารางงานล่วงหน้าครบทุกวันในเดือน <b id="bannerMonthText" style="color: #0284c7;">[เดือน]</b> ได้ง่ายๆ ในคลิกเดียว
+                        <div>
+                            <div style="font-weight: 800; font-size: 15px; color: #166534; display: flex; align-items: center; gap: 8px;">
+                                <span>ตารางงานพนักงานรายเดือน (มีตารางงานประจำทุกวันทำการ)</span>
+                                <span style="font-size: 11px; background: #15803d; color: #fff; padding: 2px 8px; border-radius: 12px; font-weight: 700;">ไม่ต้องจองตารางงาน</span>
+                            </div>
+                            <div style="font-size: 13px; color: #475569; margin-top: 3px; font-weight: 600;">
+                                เวลาทำงานปกติ 10:00 น. - 18:00 น. พนักงานรายเดือนมาทำงานทุกวันทำการตามปกติโดยไม่ต้องส่งคำขอจองตารางงาน
+                            </div>
                         </div>
                     </div>
-                    <button onclick="openFullMonthBookingModal()" style="background: linear-gradient(135deg, #4D7C68, #2D4A3E); color: #ffffff; padding: 12px 22px; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 4px 10px rgba(77,124,104,0.3);">
-                        <i class="fas fa-calendar-plus"></i> จองตารางงานทั้งเดือนนี้
-                    </button>
+                </div>
+
+                <!-- Daily Staff Booking Banner (For Daily / Part-time staff only) -->
+                <div id="dailyBookingBanner" style="display: none; background: linear-gradient(135deg, #fff7ed, #ffedd5); border: 1.5px solid #fed7aa; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 44px; height: 44px; border-radius: 12px; background: #ffedd5; color: #c2410c; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+                            <i class="fas fa-calendar-plus"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 800; font-size: 15px; color: #c2410c; display: flex; align-items: center; gap: 8px;">
+                                <span>ระบบจองตารางงานพนักงานรายวัน (พาร์ทไทม์)</span>
+                            </div>
+                            <div style="font-size: 13px; color: #475569; margin-top: 3px; font-weight: 600;">
+                                คลิกเลือกวันที่ต้องการทำงานในปฏิทินเพื่อส่งคำขอจองตารางงานและระบุเวลาเข้างาน
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Yearly 12-Month Quick Selector Card -->
@@ -513,15 +532,32 @@
 
             renderYearMonthPills();
 
-            // Toggle Monthly Booking Banner for Monthly staff
-            const banner = document.getElementById('monthlyBookingBanner');
-            if (banner) {
-                if (myPaymentFrequency === 'Monthly') {
-                    banner.style.display = 'flex';
-                    const bannerText = document.getElementById('bannerMonthText');
-                    if (bannerText) bannerText.textContent = `${thaiMonths[month - 1]} ${year + 543}`;
-                } else {
-                    banner.style.display = 'none';
+            // Toggle Monthly Info Banner vs Daily Booking Banner
+            const monthlyBanner = document.getElementById('monthlyInfoBanner');
+            const dailyBanner = document.getElementById('dailyBookingBanner');
+            const subtitleEl = document.getElementById('pageSubtitle');
+            const statPendingLabel = document.getElementById('statPendingLabel');
+            const statPendingIcon = document.getElementById('statPendingIcon');
+
+            if (myPaymentFrequency === 'Monthly') {
+                if (monthlyBanner) monthlyBanner.style.display = 'flex';
+                if (dailyBanner) dailyBanner.style.display = 'none';
+                if (subtitleEl) subtitleEl.textContent = 'พนักงานรายเดือนมีตารางงานประจำทุกวันทำการ (10:00 - 18:00 น.) ไม่ต้องจองตารางงาน';
+                if (statPendingLabel) statPendingLabel.textContent = 'ลา / ขาดงาน';
+                if (statPendingIcon) {
+                    statPendingIcon.style.background = '#fef3c7';
+                    statPendingIcon.style.color = '#b45309';
+                    statPendingIcon.innerHTML = '<i class="fas fa-user-slash"></i>';
+                }
+            } else {
+                if (monthlyBanner) monthlyBanner.style.display = 'none';
+                if (dailyBanner) dailyBanner.style.display = 'flex';
+                if (subtitleEl) subtitleEl.textContent = 'พนักงานรายวัน (พาร์ทไทม์) สามารถเลือกวันและช่วงเวลาที่สะดวก เพื่อส่งคำขอจองตารางงาน';
+                if (statPendingLabel) statPendingLabel.textContent = 'คำขอจองรออนุมัติ';
+                if (statPendingIcon) {
+                    statPendingIcon.style.background = '#ffedd5';
+                    statPendingIcon.style.color = '#c2410c';
+                    statPendingIcon.innerHTML = '<i class="fas fa-clock"></i>';
                 }
             }
 
@@ -541,7 +577,7 @@
                         
                         const summary = data.summary || {};
                         document.getElementById('statApproved').textContent = summary.approved_count || 0;
-                        document.getElementById('statPending').textContent = summary.pending_count || 0;
+                        document.getElementById('statPending').textContent = (myPaymentFrequency === 'Monthly') ? (summary.absent_count || 0) : (summary.pending_count || 0);
                         document.getElementById('statPresent').textContent = summary.present_count || 0;
                     }
                 } catch (err) {
@@ -602,15 +638,19 @@
                     } else if (empItem.attendance_status === 'absent') {
                         badgeHtml = `<span class="status-badge badge-absent"><i class="fas fa-user-slash"></i> ลา/ขาดงาน</span>${hoursTag}`;
                     } else if (empItem.booking_status === 'approved') {
-                        badgeHtml = `<span class="status-badge badge-approved"><i class="fas fa-calendar-check"></i> อนุมัติแล้ว</span>${hoursTag}`;
+                        const labelText = (myPaymentFrequency === 'Monthly') ? 'วันทำงานปกติ' : 'อนุมัติแล้ว';
+                        badgeHtml = `<span class="status-badge badge-approved"><i class="fas fa-calendar-check"></i> ${labelText}</span>${hoursTag}`;
                     } else if (empItem.booking_status === 'pending') {
                         badgeHtml = `<span class="status-badge badge-pending"><i class="fas fa-clock"></i> รออนุมัติ</span>${hoursTag}`;
                     } else if (empItem.booking_status === 'rejected') {
                         badgeHtml = `<span class="status-badge badge-rejected"><i class="fas fa-times-circle"></i> ปฏิเสธ</span>`;
                     }
                 } else {
-                    const defaultHours = (myPaymentFrequency === 'Daily') ? 'พาร์ทไทม์' : '10:00 - 18:00';
-                    badgeHtml = `<span class="status-badge badge-click"><i class="fas fa-plus"></i> จอง (${defaultHours})</span>`;
+                    if (myPaymentFrequency === 'Monthly') {
+                        badgeHtml = `<span class="status-badge badge-approved" style="background:#f0fdf4; color:#166534;"><i class="fas fa-calendar-check"></i> วันทำงานปกติ</span><span style="font-size:10px; display:block; color:#475569;">🕒 10:00 - 18:00</span>`;
+                    } else {
+                        badgeHtml = `<span class="status-badge badge-click"><i class="fas fa-plus"></i> จองเวลาเข้างาน</span>`;
+                    }
                 }
 
                 cell.innerHTML = `<div>${numSpan}</div><div>${badgeHtml}</div>`;
@@ -622,21 +662,62 @@
                             text: `วันที่ ${day} ${thaiMonths[month]} ${year + 543} ร้านปิดทำการ (${closedMap[dateStr]})`
                         });
                     });
+                } else if (myPaymentFrequency === 'Monthly') {
+                    // Monthly employees do NOT book! Just view schedule/attendance info.
+                    cell.addEventListener('click', () => showMonthlyDayInfo(dateStr, empItem));
                 } else {
+                    // Daily employees book or manage their booking requests
                     cell.addEventListener('click', () => openBookingModal(dateStr, empItem));
                 }
                 grid.appendChild(cell);
             }
         }
 
+        function showMonthlyDayInfo(dateStr, empItem) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const dObj = new Date(y, m - 1, d);
+            const dateThaiStr = `${dObj.getDate()} ${thaiMonths[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
+            
+            let statusText = '<span style="color:#15803d; font-weight:700;"><i class="fas fa-calendar-check"></i> วันทำงานปกติ (ตารางงานประจำ 10:00 - 18:00 น.)</span>';
+            if (empItem) {
+                if (empItem.attendance_status === 'present') {
+                    statusText = '<span style="color:#0284c7; font-weight:700;"><i class="fas fa-check-circle"></i> เช็คชื่อมาทำงานแล้ว</span>';
+                } else if (empItem.attendance_status === 'absent') {
+                    statusText = '<span style="color:#b45309; font-weight:700;"><i class="fas fa-user-slash"></i> บันทึกสถานะ ลา / ขาดงาน</span>';
+                }
+            }
+
+            Swal.fire({
+                title: `<i class="fas fa-calendar-day" style="color:#4D7C68;"></i> ${dateThaiStr}`,
+                html: `
+                    <div style="text-align: left; font-size: 14px; color: #334155; line-height: 1.6;">
+                        <div style="margin-bottom: 8px;"><b>ประเภทสิทธิ์:</b> พนักงานประจำรายเดือน</div>
+                        <div style="margin-bottom: 8px;"><b>เวลาทำงาน:</b> 10:00 น. - 18:00 น.</div>
+                        <div style="margin-bottom: 8px;"><b>สถานะการเข้างาน:</b> ${statusText}</div>
+                        ${empItem && empItem.notes ? `<div style="margin-bottom: 8px;"><b>หมายเหตุ:</b> ${esc(empItem.notes)}</div>` : ''}
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px; margin-top: 14px; color: #166534; font-size: 13px;">
+                            <i class="fas fa-info-circle"></i> <b>หมายเหตุ:</b> พนักงานรายเดือนมีตารางงานประจำทุกวันทำการอยู่แล้ว ไม่จำเป็นต้องส่งคำขอจองตารางงาน
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'รับทราบ',
+                confirmButtonColor: '#4D7C68'
+            });
+        }
+
         function openBookingModal(dateStr, empItem) {
+            if (myPaymentFrequency === 'Monthly') {
+                showMonthlyDayInfo(dateStr, empItem);
+                return;
+            }
+
             selectedDateStr = dateStr;
             selectedScheduleItem = empItem;
 
             const [y, m, d] = dateStr.split('-').map(Number);
             const dObj = new Date(y, m - 1, d);
             const dateThaiStr = `${dObj.getDate()} ${thaiMonths[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
-            document.getElementById('bookingModalTitle').textContent = `จองตารางงาน: ${dateThaiStr}`;
+            document.getElementById('bookingModalTitle').textContent = `จองตารางงานพาร์ทไทม์: ${dateThaiStr}`;
 
             const box = document.getElementById('bookingStatusBox');
             const workTimeBox = document.getElementById('workTimeContainer');
@@ -645,35 +726,21 @@
 
             notesInput.value = empItem ? (empItem.notes || '') : '';
 
-            // Render Work Time Input depending on Payment Frequency (Monthly/Weekly vs Daily Part-time)
-            if (myPaymentFrequency === 'Daily') {
-                const initStart = empItem && empItem.start_time ? empItem.start_time : '10:00';
-                const initEnd = empItem && empItem.end_time ? empItem.end_time : '18:00';
-                workTimeBox.innerHTML = `
-                    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 14px; padding: 14px 16px;">
-                        <label style="font-weight: 700; font-size: 14px; color: #c2410c; display: block; margin-bottom: 8px;">
-                            <i class="fas fa-user-clock"></i> เวลาทำงานพาร์ทไทม์ (รายวัน):
-                        </label>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <span style="font-size: 13px; font-weight: 700; color: #475569;">เวลาเริ่ม:</span>
-                            <input type="time" id="startTimeInput" value="${initStart}" style="padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; font-size: 14px; color: #0f172a;">
-                            <span style="font-size: 13px; font-weight: 700; color: #475569;">ถึง:</span>
-                            <input type="time" id="endTimeInput" value="${initEnd}" style="padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; font-size: 14px; color: #0f172a;">
-                        </div>
+            const initStart = empItem && empItem.start_time ? empItem.start_time : '10:00';
+            const initEnd = empItem && empItem.end_time ? empItem.end_time : '18:00';
+            workTimeBox.innerHTML = `
+                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 14px; padding: 14px 16px;">
+                    <label style="font-weight: 700; font-size: 14px; color: #c2410c; display: block; margin-bottom: 8px;">
+                        <i class="fas fa-user-clock"></i> เวลาทำงานพาร์ทไทม์ (รายวัน):
+                    </label>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <span style="font-size: 13px; font-weight: 700; color: #475569;">เวลาเริ่ม:</span>
+                        <input type="time" id="startTimeInput" value="${initStart}" style="padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; font-size: 14px; color: #0f172a;">
+                        <span style="font-size: 13px; font-weight: 700; color: #475569;">ถึง:</span>
+                        <input type="time" id="endTimeInput" value="${initEnd}" style="padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; font-size: 14px; color: #0f172a;">
                     </div>
-                `;
-            } else {
-                const freqText = myPaymentFrequency === 'Weekly' ? 'รายสัปดาห์' : 'รายเดือน';
-                workTimeBox.innerHTML = `
-                    <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 14px; padding: 14px 16px; color: #0369a1; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-clock fa-lg"></i>
-                        <div>
-                            <div>เวลาทำงานประจำสิทธิ์ (${freqText}):</div>
-                            <div style="font-size: 16px; font-weight: 800; color: #0284c7; margin-top: 2px;">10:00 น. - 18:00 น.</div>
-                        </div>
-                    </div>
-                `;
-            }
+                </div>
+            `;
 
             if (!empItem) {
                 box.style.display = 'none';
@@ -817,96 +884,6 @@
                     title: 'ยกเลิกเรียบร้อย',
                     text: 'ยกเลิกคำขอจองตารางงานเรียบร้อยแล้ว',
                     timer: 1500,
-                    showConfirmButton: false
-                });
-
-                closeBookingModal();
-                loadMySchedules();
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
-            }
-        }
-
-        function openFullMonthBookingModal() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            const monthName = thaiMonths[month];
-            const yearThai = year + 543;
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            document.getElementById('bookingModalTitle').textContent = `จองตารางงานทั้งเดือน: ${monthName} ${yearThai}`;
-
-            const box = document.getElementById('bookingStatusBox');
-            const workTimeBox = document.getElementById('workTimeContainer');
-            const actContainer = document.getElementById('bookingActionContainer');
-            const notesInput = document.getElementById('bookingNotes');
-
-            notesInput.value = '';
-            box.style.display = 'none';
-
-            workTimeBox.innerHTML = `
-                <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 14px; padding: 16px; color: #0369a1;">
-                    <div style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #0284c7;">
-                        <i class="fas fa-calendar-alt fa-lg"></i>
-                        <span>คำขอจองตารางงานประจำเดือนแบบเต็ม (รายเดือน)</span>
-                    </div>
-                    <div style="font-size: 14px; color: #0f172a; font-weight: 700; margin-top: 4px;">
-                        📅 <b>ช่วงวันที่จะได้รับจอง:</b> <span style="color: #0284c7; font-weight: 800;">${daysInMonth} วัน (1 - ${daysInMonth} ${monthName} ${yearThai})</span>
-                    </div>
-                    <div style="font-size: 13px; color: #475569; font-weight: 600; margin-top: 4px;">
-                        🕒 <b>เวลาทำงานประจำ:</b> 10:00 น. - 18:00 น. ทุกวัน
-                    </div>
-                </div>
-            `;
-
-            actContainer.innerHTML = `
-                <button class="btn-submit-booking" onclick="submitFullMonthBooking(${year}, ${month + 1}, ${daysInMonth})">
-                    <i class="fas fa-paper-plane"></i> ยืนยันส่งคำขอจองทั้งเดือน (${daysInMonth} วัน)
-                </button>
-            `;
-
-            document.getElementById('bookingOverlay').classList.add('show');
-        }
-
-        async function submitFullMonthBooking(year, monthNum, daysInMonth) {
-            if (!myEmployeeId) {
-                Swal.fire({ icon: 'warning', title: 'ไม่พบข้อมูลพนักงาน', text: 'กรุณาเลือกพนักงานหรือเข้าสู่ระบบบัญชีพนักงานก่อนดำเนินการ' });
-                return;
-            }
-
-            const notes = document.getElementById('bookingNotes').value;
-            const workDates = [];
-            const mStr = String(monthNum).padStart(2, '0');
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dStr = String(d).padStart(2, '0');
-                workDates.push(`${year}-${mStr}-${dStr}`);
-            }
-
-            try {
-                const csrfToken = getCsrfToken();
-                const res = await fetch('/api/schedule/book', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify({
-                        employee_id: myEmployeeId,
-                        work_dates: workDates,
-                        start_time: '10:00',
-                        end_time: '18:00',
-                        notes: notes,
-                        csrf_token: csrfToken
-                    })
-                });
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.message || 'ส่งคำขอจองไม่สำเร็จ');
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'ส่งคำขอจองทั้งเดือนเรียบร้อย',
-                    text: `ส่งคำขอจองตารางงานครบทั้งเดือน (${daysInMonth} วัน) เรียบร้อยแล้ว`,
-                    timer: 1800,
                     showConfirmButton: false
                 });
 

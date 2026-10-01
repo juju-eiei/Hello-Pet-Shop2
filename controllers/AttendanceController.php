@@ -117,13 +117,15 @@ class AttendanceController {
     public function adminOverview() {
         $period = $_GET['period'] ?? date('Y-m');
         try {
-            $sql = "SELECT e.employee_id, e.first_name, e.last_name, e.position,
+            $sql = "SELECT e.employee_id, e.first_name, e.last_name, COALESCE(r.role_name, 'พนักงาน') AS position,
                     COUNT(DISTINCT dates.work_date) AS scheduled_days,
                     COALESCE(SUM(av.attendance_status = 'present'), 0) AS present_days,
                     COALESCE(SUM(av.attendance_status = 'leave'), 0) AS leave_days,
                     COALESCE(SUM(av.attendance_status = 'absent'), 0) AS absent_days,
                     COUNT(DISTINCT dates.work_date) - COUNT(DISTINCT av.work_date) AS pending_days
                     FROM employees e
+                    LEFT JOIN users u ON u.user_id = e.user_id
+                    LEFT JOIN roles r ON r.role_id = u.role_id
                     LEFT JOIN (
                         SELECT employee_id, work_date FROM work_schedules WHERE booking_status = 'approved' AND DATE_FORMAT(work_date, '%Y-%m') = :period1
                         UNION
@@ -131,7 +133,7 @@ class AttendanceController {
                     ) dates ON dates.employee_id = e.employee_id
                     LEFT JOIN attendance_verifications av ON av.employee_id = e.employee_id
                         AND av.work_date = dates.work_date
-                    GROUP BY e.employee_id, e.first_name, e.last_name, e.position
+                    GROUP BY e.employee_id, e.first_name, e.last_name, r.role_name
                     ORDER BY e.first_name, e.last_name";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([':period1' => $period, ':period2' => $period]);
@@ -146,7 +148,7 @@ class AttendanceController {
         $period = $_GET['period'] ?? date('Y-m');
         if (!$employeeId) { Response::json(400, 'Employee ID is required'); return; }
         try {
-            $employeeStmt = $this->db->prepare('SELECT employee_id, first_name, last_name, position FROM employees WHERE employee_id = :id');
+            $employeeStmt = $this->db->prepare("SELECT e.employee_id, e.first_name, e.last_name, COALESCE(r.role_name, 'พนักงาน') AS position FROM employees e LEFT JOIN users u ON u.user_id = e.user_id LEFT JOIN roles r ON r.role_id = u.role_id WHERE e.employee_id = :id");
             $employeeStmt->execute([':id' => $employeeId]);
             $employee = $employeeStmt->fetch(PDO::FETCH_ASSOC);
             if (!$employee) { Response::json(404, 'Employee not found'); return; }

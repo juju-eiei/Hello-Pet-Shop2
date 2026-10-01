@@ -129,8 +129,8 @@ const routes = {
     '/staff/promotions': { file: '/staff_promotions.html', category: 'staff', title: 'โปรโมชั่น - Hello Pet Shop' },
     '/staff_promotions.html': { file: '/staff_promotions.html', category: 'staff', title: 'โปรโมชั่น - Hello Pet Shop' },
 
-    '/staff/schedule': { file: '/staff_schedule.html', category: 'staff', title: 'จองตารางงาน - Hello Pet Shop' },
-    '/staff_schedule.html': { file: '/staff_schedule.html', category: 'staff', title: 'จองตารางงาน - Hello Pet Shop' }
+    '/staff/schedule': { file: '/staff_schedule.html', category: 'staff', title: 'ตารางงานและวันเข้างาน - Hello Pet Shop' },
+    '/staff_schedule.html': { file: '/staff_schedule.html', category: 'staff', title: 'ตารางงานและวันเข้างาน - Hello Pet Shop' }
 };
 
 export function getRouteInfo(pathname) {

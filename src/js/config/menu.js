@@ -90,7 +90,7 @@ export const menuConfig = {
             icon: 'fas fa-user-circle',
             title: 'ส่วนตัวและตารางงาน',
             items: [
-                { url: '/staff/schedule', icon: 'fas fa-calendar-alt', title: 'จองตารางงาน', permission: 'staff_profile_manage' },
+                { url: '/staff/schedule', icon: 'fas fa-calendar-alt', title: 'ตารางงาน', permission: 'staff_profile_manage' },
                 { url: '/staff/profile', icon: 'fas fa-user-cog', title: 'โปรไฟล์ของฉัน', permission: 'staff_profile_manage' }
             ]
         }
