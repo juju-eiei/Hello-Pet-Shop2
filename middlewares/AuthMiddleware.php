@@ -57,6 +57,18 @@ class AuthMiddleware {
                 $stmt->execute([$headerUid]);
                 $matchedUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
+                if (!$matchedUser) {
+                    $stmtCust = $db->prepare("
+                        SELECT u.user_id, u.username, r.role_name 
+                        FROM customers c
+                        JOIN users u ON c.user_id = u.user_id
+                        JOIN roles r ON u.role_id = r.role_id 
+                        WHERE c.customer_id = ?
+                        LIMIT 1
+                    ");
+                    $stmtCust->execute([$headerUid]);
+                    $matchedUser = $stmtCust->fetch(PDO::FETCH_ASSOC);
+                }
                 if ($matchedUser) {
                     $_SESSION['user_id'] = $matchedUser['user_id'];
                     $_SESSION['role'] = $matchedUser['role_name'];
