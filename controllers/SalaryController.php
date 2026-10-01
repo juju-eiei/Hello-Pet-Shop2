@@ -72,6 +72,7 @@ class SalaryController {
         $leaveDeduction = (int)($attendance['leave_days'] ?? 0) * $leaveRate;
         $absenceDeduction = (int)($attendance['absent_days'] ?? 0) * $absenceRate;
 
+        $weekly = (float)($setting['weekly_rate'] ?? 0);
         return array_merge($attendance, [
             'pay_frequency' => $frequency, 'monthly_salary' => $monthly, 'weekly_rate' => $weekly, 'daily_rate' => $daily,
             'hourly_rate' => $hourlyRate, 'total_hours' => $totalHours,
@@ -86,9 +87,9 @@ class SalaryController {
         try {
             $period = $_GET['period'] ?? date('Y-m');
             $search = trim($_GET['search'] ?? '');
-            $sql = "SELECT e.*, u.email FROM employees e LEFT JOIN users u ON e.user_id = u.user_id WHERE 1=1";
+            $sql = "SELECT e.*, u.email, COALESCE(r.role_name, 'พนักงาน') AS position FROM employees e LEFT JOIN users u ON e.user_id = u.user_id LEFT JOIN roles r ON r.role_id = u.role_id WHERE 1=1";
             $params = [];
-            if ($search !== '') { $sql .= ' AND (e.first_name LIKE :s OR e.last_name LIKE :s OR e.position LIKE :s OR u.email LIKE :s)'; $params[':s'] = "%$search%"; }
+            if ($search !== '') { $sql .= ' AND (e.first_name LIKE :s OR e.last_name LIKE :s OR r.role_name LIKE :s OR u.email LIKE :s)'; $params[':s'] = "%$search%"; }
             $sql .= ' ORDER BY e.employee_id';
             $stmt = $this->db->prepare($sql); $stmt->execute($params); $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $payStmt = $this->db->prepare('SELECT * FROM salary_payments WHERE pay_period = :period'); $payStmt->execute([':period' => $period]);
@@ -177,7 +178,7 @@ class SalaryController {
         try {
             $rightsStmt = $this->db->query("SELECT * FROM pay_right_settings ORDER BY FIELD(pay_frequency, 'Monthly', 'Daily')");
             $rights = $rightsStmt->fetchAll(PDO::FETCH_ASSOC);
-            $sql = "SELECT e.employee_id, e.first_name, e.last_name, e.position, e.base_salary, e.payment_frequency, ps.pay_frequency, ps.monthly_salary, ps.weekly_rate, ps.daily_rate, ps.leave_deduction_per_day, ps.absence_deduction_per_day FROM employees e LEFT JOIN employee_pay_settings ps ON ps.employee_id=e.employee_id ORDER BY e.first_name,e.last_name";
+            $sql = "SELECT e.employee_id, e.first_name, e.last_name, COALESCE(r.role_name, 'พนักงาน') AS position, e.base_salary, e.payment_frequency, ps.pay_frequency, ps.monthly_salary, ps.weekly_rate, ps.daily_rate, ps.leave_deduction_per_day, ps.absence_deduction_per_day FROM employees e LEFT JOIN users u ON e.user_id = u.user_id LEFT JOIN roles r ON r.role_id = u.role_id LEFT JOIN employee_pay_settings ps ON ps.employee_id=e.employee_id ORDER BY e.first_name,e.last_name";
             $employees = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
             Response::json(200, 'Success', ['rights' => $rights, 'employees' => $employees, 'data' => $rights]);
         } catch (Exception $e) { Response::json(500, 'Error fetching pay settings: '.$e->getMessage()); }

@@ -50,25 +50,32 @@ class StaffController {
     }
 
     public function create() {
+        header('Content-Type: application/json; charset=utf-8');
         $json = file_get_contents('php://input');
         $data = json_decode($json, true);
 
         // Validation
         if (empty($data['first_name']) || empty($data['email']) || empty($data['password'])) {
             http_response_code(400);
-            echo json_encode(["message" => "Name, Email, and Password are required"]);
+            echo json_encode(["message" => "กรุณากรอกชื่อ, อีเมล และรหัสผ่านให้ครบถ้วน"]);
             return;
         }
 
-        if ($this->model->create($data)) {
-            echo json_encode(["message" => "Staff member created successfully"]);
-        } else {
-            http_response_code(500);
-            echo json_encode(["message" => "Failed to create staff member"]);
+        try {
+            if ($this->model->create($data)) {
+                echo json_encode(["message" => "เพิ่มพนักงานสำเร็จ"]);
+            } else {
+                http_response_code(500);
+                echo json_encode(["message" => "ไม่สามารถเพิ่มข้อมูลพนักงานได้"]);
+            }
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(["message" => $e->getMessage()]);
         }
     }
 
     public function update() {
+        header('Content-Type: application/json; charset=utf-8');
         $json = file_get_contents('php://input');
         $data = json_decode($json, true) ?: [];
         if (isset($_POST['_override_data']) && is_array($_POST['_override_data'])) {
@@ -82,11 +89,16 @@ class StaffController {
             return;
         }
 
-        if ($this->model->update($id, $data)) {
-            echo json_encode(["message" => "Staff member updated successfully"]);
-        } else {
-            http_response_code(500);
-            echo json_encode(["message" => "Failed to update staff member"]);
+        try {
+            if ($this->model->update($id, $data)) {
+                echo json_encode(["message" => "อัปเดตข้อมูลพนักงานสำเร็จ"]);
+            } else {
+                http_response_code(500);
+                echo json_encode(["message" => "ไม่สามารถอัปเดตข้อมูลพนักงานได้"]);
+            }
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(["message" => $e->getMessage()]);
         }
     }
 

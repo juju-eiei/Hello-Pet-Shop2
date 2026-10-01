@@ -368,7 +368,7 @@
         <main class="main-content">
             <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h1>จัดการพนักงานและสิทธิ์การจ้าง</h1>
-                <button class="save-btn" id="addStaffBtn" style="padding: 10px 24px; font-size: 14px;">
+                <button type="button" class="save-btn" id="addStaffBtn" onclick="openAddStaff()" style="padding: 10px 24px; font-size: 14px;">
                     <i class="fas fa-plus" style="margin-right: 8px;"></i>
                     <span>เพิ่มพนักงานใหม่</span>
                 </button>
@@ -460,8 +460,9 @@
                             <div class="form-group">
                                 <label>สิทธิ์การจ่ายเงิน / ประเภทการจ้าง <span style="color:red;">*</span></label>
                                 <select id="payment_frequency" name="payment_frequency" required>
-                                    <option value="Monthly">สิทธิ์รายเดือน (Monthly)</option>
-                                    <option value="Daily">สิทธิ์รายวัน (Daily)</option>
+                                    <option value="" disabled selected>-- เลือกประเภทการจ้าง / สิทธิ์การจ่ายเงิน --</option>
+                                    <option value="Daily">สิทธิ์รายวัน (Daily - พาร์ทไทม์ ต้องจองตารางงานเอง)</option>
+                                    <option value="Monthly">สิทธิ์รายเดือน (Monthly - ตารางงานประจำอัตโนมัติ)</option>
                                 </select>
                             </div>
 
@@ -545,6 +546,40 @@
         let payRightsList = [];
         let activeTab = 'info';
 
+        function openAddStaff() {
+            const form = document.getElementById('staffForm');
+            if (form) form.reset();
+            const empId = document.getElementById('employee_id');
+            if (empId) empId.value = '';
+            const pwd = document.getElementById('password');
+            if (pwd) pwd.setAttribute('required', 'true');
+            const freq = document.getElementById('payment_frequency');
+            if (freq) freq.value = '';
+            
+            const secInfo = document.getElementById('sectionEmployeeInfo');
+            const secSalary = document.getElementById('sectionSalaryPayRights');
+            const secRole = document.getElementById('sectionSystemRole');
+            if (secInfo) secInfo.style.display = 'block';
+            if (secSalary) secSalary.style.display = 'block';
+            if (secRole) secRole.style.display = 'block';
+
+            const roleSelect = document.getElementById('role_id');
+            if (roleSelect) {
+                const empOpt = Array.from(roleSelect.options).find(o => (o.text || '').toLowerCase().includes('employee') || o.value == '2');
+                if (empOpt) {
+                    roleSelect.value = empOpt.value;
+                } else if (roleSelect.options.length > 0) {
+                    roleSelect.value = roleSelect.options[0].value;
+                }
+            }
+
+            const attSection = document.getElementById('editModalAttendanceSection');
+            if (attSection) attSection.style.display = 'none';
+            updatePayRateLabel(true);
+            openDrawer("เพิ่มพนักงานใหม่");
+        }
+        window.openAddStaff = openAddStaff;
+
         function bindStaffEvents() {
             const staffContainer = document.getElementById('staffContainer');
             if (staffContainer && !staffContainer.dataset.bound) {
@@ -585,26 +620,7 @@
             if (addStaffBtn && !addStaffBtn.dataset.bound) {
                 addStaffBtn.dataset.bound = 'true';
                 addStaffBtn.addEventListener('click', () => {
-                    const form = document.getElementById('staffForm');
-                    if (form) form.reset();
-                    const empId = document.getElementById('employee_id');
-                    if (empId) empId.value = '';
-                    const pwd = document.getElementById('password');
-                    if (pwd) pwd.setAttribute('required', 'true');
-                    const freq = document.getElementById('payment_frequency');
-                    if (freq) freq.value = 'Monthly';
-                    
-                    const secInfo = document.getElementById('sectionEmployeeInfo');
-                    const secSalary = document.getElementById('sectionSalaryPayRights');
-                    const secRole = document.getElementById('sectionSystemRole');
-                    if (secInfo) secInfo.style.display = 'block';
-                    if (secSalary) secSalary.style.display = 'block';
-                    if (secRole) secRole.style.display = 'block';
-
-                    const attSection = document.getElementById('editModalAttendanceSection');
-                    if (attSection) attSection.style.display = 'none';
-                    updatePayRateLabel(true);
-                    openDrawer("เพิ่มพนักงานใหม่");
+                    openAddStaff();
                 });
             }
 
@@ -622,16 +638,36 @@
                 saveBtn.addEventListener('click', async () => {
                     const form = document.getElementById('staffForm');
                     if (!form) return;
-                    if (!form.checkValidity()) {
-                        form.reportValidity();
-                        return;
+
+                    // Validate visible required fields
+                    let isValid = true;
+                    const requiredInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
+                    for (const input of requiredInputs) {
+                        // Skip if field is inside a hidden section
+                        if (input.offsetParent === null) continue;
+                        if (!input.checkValidity()) {
+                            input.reportValidity();
+                            isValid = false;
+                            break;
+                        }
                     }
+                    if (!isValid) return;
 
                     const formData = new FormData(form);
                     const data = Object.fromEntries(formData.entries());
                     
                     const isUpdate = !!data.id;
                     const url = isUpdate ? `/api/staff/update?id=${data.id}` : `/api/staff/create`;
+
+                    // Default role_id if not selected
+                    if (!data.role_id) {
+                        const roleSelect = document.getElementById('role_id');
+                        data.role_id = roleSelect ? roleSelect.value : '2';
+                    }
+
+                    saveBtn.disabled = true;
+                    const origHtml = saveBtn.innerHTML;
+                    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>กำลังบันทึก...';
 
                     try {
                         const response = await fetch(url, {
@@ -640,17 +676,20 @@
                             body: JSON.stringify(data)
                         });
                         
+                        const res = await response.json().catch(() => ({}));
                         if (response.ok) {
-                            showToast(isUpdate ? "อัปเดตข้อมูลพนักงานสำเร็จ" : "เพิ่มพนักงานสำเร็จ", "success");
+                            showToast(res.message || (isUpdate ? "อัปเดตข้อมูลพนักงานสำเร็จ" : "เพิ่มพนักงานสำเร็จ"), "success");
                             closeDrawer();
                             fetchStaff();
                         } else {
-                            const res = await response.json();
                             showToast(res.message || "เกิดข้อผิดพลาดในการบันทึก", "error");
                         }
                     } catch (error) { 
                         console.error("saveStaffBtn error:", error);
                         showToast("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ", "error"); 
+                    } finally {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = origHtml;
                     }
                 });
             }
@@ -690,14 +729,24 @@
             try {
                 const res = await fetch('/api/staff/roles');
                 const result = await res.json();
-                if (res.ok) {
-                    rolesList = result.data || [];
-                    const select = document.getElementById('role_id');
-                    if (select) {
-                        select.innerHTML = rolesList.map(r => `<option value="${r.role_id}">${r.role_name}</option>`).join('');
-                    }
+                if (res.ok && Array.isArray(result.data) && result.data.length > 0) {
+                    rolesList = result.data;
                 }
-            } catch (error) { console.error("Error fetching roles", error); }
+            } catch (error) { 
+                console.error("Error fetching roles", error); 
+            }
+            if (!rolesList || rolesList.length === 0) {
+                rolesList = [
+                    { role_id: 2, role_name: 'Employee' },
+                    { role_id: 1, role_name: 'Admin' }
+                ];
+            }
+            const select = document.getElementById('role_id');
+            if (select) {
+                select.innerHTML = rolesList.map(r => `<option value="${r.role_id}">${r.role_name}</option>`).join('');
+                const empOpt = rolesList.find(r => (r.role_name || '').toLowerCase() === 'employee' || r.role_id == 2);
+                if (empOpt) select.value = empOpt.role_id;
+            }
         }
 
         async function fetchPayRights() {
@@ -941,7 +990,8 @@
         });
 
         function updatePayRateLabel(isUserChange = false) {
-            const freq = document.getElementById('payment_frequency').value;
+            const freqEl = document.getElementById('payment_frequency');
+            const freq = freqEl ? freqEl.value : '';
             const salaryInput = document.getElementById('base_salary');
             
             const labels = {
@@ -949,10 +999,15 @@
                 Daily: 'ค่าจ้าง (บาท / วัน)'
             };
 
-            const rightNames = {
-                Monthly: 'สิทธิ์รายเดือน',
-                Daily: 'สิทธิ์รายวัน'
-            };
+            const baseSalaryLabel = document.getElementById('baseSalaryLabel');
+            const baseSalaryHint = document.getElementById('baseSalaryHint');
+
+            if (!freq) {
+                if (salaryInput) salaryInput.value = '';
+                if (baseSalaryLabel) baseSalaryLabel.innerHTML = `เงินเดือน / อัตราค่าจ้าง (บาท) <span style="color:red;">*</span>`;
+                if (baseSalaryHint) baseSalaryHint.innerHTML = `<i class="fas fa-info-circle" style="color: #64748b;"></i> กรุณาเลือกสิทธิ์การจ่ายเงิน / ประเภทการจ้าง`;
+                return;
+            }
 
             // Pay-right settings are optional. They must never prevent the add/edit
             // drawer from opening when their endpoint returns an unexpected shape.
@@ -962,11 +1017,9 @@
             const rightObj = rights.find(r => r && r.pay_frequency === freq) || {};
             const defaultRateVal = rightObj.default_rate !== undefined ? parseFloat(rightObj.default_rate) : (freq === 'Monthly' ? 15000 : 300);
 
-            const baseSalaryLabel = document.getElementById('baseSalaryLabel');
             if (baseSalaryLabel) {
                 baseSalaryLabel.innerHTML = `${labels[freq] || labels.Monthly} <span style="color:red;">*</span>`;
             }
-            const baseSalaryHint = document.getElementById('baseSalaryHint');
             if (baseSalaryHint) {
                 baseSalaryHint.innerHTML = `<i class="fas fa-lock" style="color: #64748b;"></i> อัตราค่าจ้างถูกกำหนดจากหน้า <a href="admin_pay_settings.html" style="color: #4D7C68; font-weight: 700; text-decoration: underline;">กำหนดอัตราค่าจ้างและเวลาทำงานตามสิทธิ์</a> (ไม่สามารถแก้ไขในหน้านี้ได้)`;
             }

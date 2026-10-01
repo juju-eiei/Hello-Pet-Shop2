@@ -22,15 +22,74 @@ class ScheduleController {
         return $row['employee_id'] ?? null;
     }
 
+    private function ensureMonthlyStaffSchedules($month) {
+        try {
+            $closedStmt = $this->db->prepare("SELECT closed_date FROM shop_closed_days WHERE DATE_FORMAT(closed_date, '%Y-%m') = :month");
+            $closedStmt->execute([':month' => $month]);
+            $closedDates = $closedStmt->fetchAll(PDO::FETCH_COLUMN);
+            $closedMap = array_flip($closedDates);
+
+            // Clean up any auto-generated schedules for Daily staff in this month (Daily staff must book their own shifts)
+            $cleanDaily = $this->db->prepare("DELETE ws FROM work_schedules ws
+                JOIN employees e ON e.employee_id = ws.employee_id
+                WHERE e.payment_frequency = 'Daily'
+                  AND ws.created_by IS NULL
+                  AND ws.attendance_status = 'unverified'
+                  AND DATE_FORMAT(ws.work_date, '%Y-%m') = :month");
+            $cleanDaily->execute([':month' => $month]);
+
+            $empStmt = $this->db->query("SELECT employee_id FROM employees WHERE payment_frequency = 'Monthly'");
+            $monthlyEmps = $empStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($monthlyEmps)) return;
+
+            // Automatically fix any legacy pending bookings for monthly staff to approved
+            $fixPending = $this->db->prepare("UPDATE work_schedules ws
+                JOIN employees e ON e.employee_id = ws.employee_id
+                SET ws.booking_status = 'approved'
+                WHERE e.payment_frequency = 'Monthly'
+                  AND ws.booking_status = 'pending'
+                  AND DATE_FORMAT(ws.work_date, '%Y-%m') = :month");
+            $fixPending->execute([':month' => $month]);
+
+            $countStmt = $this->db->prepare("SELECT COUNT(*) FROM work_schedules WHERE employee_id = :id AND DATE_FORMAT(work_date, '%Y-%m') = :month");
+            $numDays = (int)date('t', strtotime($month . '-01'));
+            $insertStmt = $this->db->prepare("INSERT IGNORE INTO work_schedules 
+                (employee_id, work_date, shift_name, start_time, end_time, booking_status, attendance_status, created_by)
+                VALUES (:emp_id, :work_date, '10:00 - 18:00', '10:00:00', '18:00:00', 'approved', 'unverified', NULL)");
+            $logStmt = $this->db->prepare("INSERT IGNORE INTO attendance_logs (employee_id, work_date) VALUES (:emp_id, :work_date)");
+
+            foreach ($monthlyEmps as $empId) {
+                $countStmt->execute([':id' => $empId, ':month' => $month]);
+                $count = (int)$countStmt->fetchColumn();
+
+                if ($count === 0) {
+                    for ($d = 1; $d <= $numDays; $d++) {
+                        $dateStr = sprintf('%s-%02d', $month, $d);
+                        if (isset($closedMap[$dateStr])) continue;
+                        $insertStmt->execute([':emp_id' => $empId, ':work_date' => $dateStr]);
+                        $logStmt->execute([':emp_id' => $empId, ':work_date' => $dateStr]);
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            error_log("ensureMonthlyStaffSchedules error: " . $e->getMessage());
+        }
+    }
+
     public function getMonthlySchedules() {
         try {
             $month = $_GET['month'] ?? date('Y-m');
             $employeeId = isset($_GET['employee_id']) && $_GET['employee_id'] !== '' ? (int)$_GET['employee_id'] : null;
 
-            $sql = "SELECT ws.*, e.first_name, e.last_name, e.position, COALESCE(e.payment_frequency, 'Monthly') AS payment_frequency, u.email
+            // Ensure Monthly employees are scheduled and approved for the entire month automatically
+            $this->ensureMonthlyStaffSchedules($month);
+
+            $sql = "SELECT ws.*, e.first_name, e.last_name, COALESCE(r.role_name, 'พนักงาน') AS position, COALESCE(e.payment_frequency, 'Monthly') AS payment_frequency, u.email
                     FROM work_schedules ws
                     JOIN employees e ON e.employee_id = ws.employee_id
                     LEFT JOIN users u ON u.user_id = e.user_id
+                    LEFT JOIN roles r ON r.role_id = u.role_id
                     WHERE DATE_FORMAT(ws.work_date, '%Y-%m') = :month";
             $params = [':month' => $month];
 
@@ -138,16 +197,18 @@ class ScheduleController {
     public function getDateDetails() {
         try {
             $workDate = $_GET['work_date'] ?? date('Y-m-d');
+            $this->ensureMonthlyStaffSchedules(substr($workDate, 0, 7));
 
-            // Fetch all employees with payment_frequency
-            $empStmt = $this->db->query("SELECT employee_id, first_name, last_name, position, COALESCE(payment_frequency, 'Monthly') AS payment_frequency FROM employees ORDER BY first_name, last_name");
+            // Fetch all employees with payment_frequency and position
+            $empStmt = $this->db->query("SELECT e.employee_id, e.first_name, e.last_name, COALESCE(r.role_name, 'พนักงาน') AS position, COALESCE(e.payment_frequency, 'Monthly') AS payment_frequency FROM employees e LEFT JOIN users u ON u.user_id = e.user_id LEFT JOIN roles r ON r.role_id = u.role_id ORDER BY e.first_name, e.last_name");
             $allEmployees = $empStmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Fetch schedules for this date
-            $sql = "SELECT ws.*, e.first_name, e.last_name, e.position, COALESCE(e.payment_frequency, 'Monthly') AS payment_frequency, u.email
+            $sql = "SELECT ws.*, e.first_name, e.last_name, COALESCE(r.role_name, 'พนักงาน') AS position, COALESCE(e.payment_frequency, 'Monthly') AS payment_frequency, u.email
                     FROM work_schedules ws
                     JOIN employees e ON e.employee_id = ws.employee_id
                     LEFT JOIN users u ON u.user_id = e.user_id
+                    LEFT JOIN roles r ON r.role_id = u.role_id
                     WHERE ws.work_date = :work_date
                     ORDER BY e.first_name, e.last_name";
             $stmt = $this->db->prepare($sql);
@@ -220,16 +281,14 @@ class ScheduleController {
             $empRow = $empStmt->fetch(PDO::FETCH_ASSOC);
             $payFreq = $empRow['payment_frequency'] ?? 'Monthly';
 
-            if ($payFreq === 'Daily') {
-                $startTime = !empty($data['start_time']) ? $data['start_time'] : '10:00';
-                $endTime = !empty($data['end_time']) ? $data['end_time'] : '18:00';
-                $shiftName = $startTime . ' - ' . $endTime;
-            } else {
-                // Monthly & Weekly fixed 10:00 - 18:00
-                $startTime = '10:00';
-                $endTime = '18:00';
-                $shiftName = '10:00 - 18:00';
+            if ($payFreq === 'Monthly') {
+                Response::json(400, "พนักงานรายเดือนมีตารางงานประจำอยู่แล้ว ไม่จำเป็นต้องจองตารางงาน (เฉพาะพนักงานรายวันเท่านั้นที่ต้องจองตารางงาน)");
+                return;
             }
+
+            $startTime = !empty($data['start_time']) ? $data['start_time'] : '10:00';
+            $endTime = !empty($data['end_time']) ? $data['end_time'] : '18:00';
+            $shiftName = $startTime . ' - ' . $endTime;
 
             $dates = is_array($workDates) ? $workDates : [$workDates];
 
@@ -258,7 +317,7 @@ class ScheduleController {
             }
 
             $this->db->commit();
-            Response::json(200, "ส่งคำขอจองตารางงานสำเร็จ รอแอดมินอนุมัติ", ["dates" => $dates, "work_hours" => $shiftName]);
+            Response::json(200, "ส่งคำขอจองตารางงานพนักงานรายวันสำเร็จ รอแอดมินอนุมัติ", ["dates" => $dates, "work_hours" => $shiftName]);
         } catch (Exception $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             Response::json(500, "Error booking schedule: " . $e->getMessage());
@@ -289,49 +348,20 @@ class ScheduleController {
                 return;
             }
 
-            // Fetch employee's payment_frequency
-            $empStmt = $this->db->prepare("SELECT payment_frequency FROM employees WHERE employee_id = :id");
-            $empStmt->execute([':id' => $employeeId]);
-            $empRow = $empStmt->fetch(PDO::FETCH_ASSOC);
-            $payFreq = $empRow['payment_frequency'] ?? 'Monthly';
-
-            if ($payFreq === 'Monthly') {
-                // For Monthly employee: Approve ALL pending schedules of THIS employee for this ENTIRE month individually
-                $targetMonth = date('Y-m', strtotime($workDate));
-
-                $appStmt = $this->db->prepare("UPDATE work_schedules 
-                    SET booking_status = 'approved' 
-                    WHERE employee_id = :emp_id 
-                      AND DATE_FORMAT(work_date, '%Y-%m') = :month 
-                      AND booking_status = 'pending'");
-                $appStmt->execute([':emp_id' => $employeeId, ':month' => $targetMonth]);
-                $approvedCount = $appStmt->rowCount();
-
-                // Sync all approved dates of this employee in that month to attendance_logs
-                $logStmt = $this->db->prepare("INSERT IGNORE INTO attendance_logs (employee_id, work_date)
-                    SELECT employee_id, work_date FROM work_schedules 
-                    WHERE employee_id = :emp_id AND DATE_FORMAT(work_date, '%Y-%m') = :month AND booking_status = 'approved'");
-                $logStmt->execute([':emp_id' => $employeeId, ':month' => $targetMonth]);
-
-                $this->db->commit();
-                Response::json(200, "อนุมัติคำขอจองตารางงานทั้งเดือนของพนักงานเรียบร้อยแล้ว (" . max(1, $approvedCount) . " วัน)");
+            if ($scheduleId) {
+                $stmt = $this->db->prepare("UPDATE work_schedules SET booking_status = 'approved' WHERE schedule_id = :id");
+                $stmt->execute([':id' => $scheduleId]);
             } else {
-                // For Daily employee: Approve ONLY this single schedule / work date
-                if ($scheduleId) {
-                    $stmt = $this->db->prepare("UPDATE work_schedules SET booking_status = 'approved' WHERE schedule_id = :id");
-                    $stmt->execute([':id' => $scheduleId]);
-                } else {
-                    $stmt = $this->db->prepare("UPDATE work_schedules SET booking_status = 'approved' WHERE employee_id = :emp_id AND work_date = :work_date");
-                    $stmt->execute([':emp_id' => $employeeId, ':work_date' => $workDate]);
-                }
-
-                // Sync with attendance_logs
-                $logStmt = $this->db->prepare("INSERT IGNORE INTO attendance_logs (employee_id, work_date) VALUES (:emp_id, :work_date)");
-                $logStmt->execute([':emp_id' => $employeeId, ':work_date' => $workDate]);
-
-                $this->db->commit();
-                Response::json(200, "อนุมัติคำขอจองตารางงานเรียบร้อยแล้ว");
+                $stmt = $this->db->prepare("UPDATE work_schedules SET booking_status = 'approved' WHERE employee_id = :emp_id AND work_date = :work_date");
+                $stmt->execute([':emp_id' => $employeeId, ':work_date' => $workDate]);
             }
+
+            // Sync with attendance_logs
+            $logStmt = $this->db->prepare("INSERT IGNORE INTO attendance_logs (employee_id, work_date) VALUES (:emp_id, :work_date)");
+            $logStmt->execute([':emp_id' => $employeeId, ':work_date' => $workDate]);
+
+            $this->db->commit();
+            Response::json(200, "อนุมัติคำขอจองตารางงานพนักงานรายวันเรียบร้อยแล้ว");
         } catch (Exception $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             Response::json(500, "Error approving booking: " . $e->getMessage());
@@ -576,7 +606,7 @@ class ScheduleController {
                     FROM work_schedules ws
                     JOIN employees e ON ws.employee_id = e.employee_id
                     WHERE ws.booking_status = 'pending' 
-                      AND e.payment_frequency = 'Monthly'
+                      AND e.payment_frequency = 'Daily'
                       AND DATE_FORMAT(ws.work_date, '%Y-%m') = :month";
             $params = [':month' => $month];
 
@@ -591,7 +621,7 @@ class ScheduleController {
 
             if (empty($pendingRows)) {
                 $this->db->commit();
-                Response::json(200, "ไม่มีคำขอจองค้างอนุมัติของพนักงานรายเดือนในเดือนนี้", ['count' => 0]);
+                Response::json(200, "ไม่มีคำขอจองค้างอนุมัติของพนักงานรายวันในเดือนนี้", ['count' => 0]);
                 return;
             }
 
@@ -599,7 +629,7 @@ class ScheduleController {
                           JOIN employees e ON ws.employee_id = e.employee_id
                           SET ws.booking_status = 'approved' 
                           WHERE ws.booking_status = 'pending' 
-                            AND e.payment_frequency = 'Monthly'
+                            AND e.payment_frequency = 'Daily'
                             AND DATE_FORMAT(ws.work_date, '%Y-%m') = :month";
             if ($employeeId) $updateSql .= " AND ws.employee_id = :emp_id";
             $updateStmt = $this->db->prepare($updateSql);
@@ -612,7 +642,7 @@ class ScheduleController {
             }
 
             $this->db->commit();
-            Response::json(200, "อนุมัติคำขอจองพนักงานรายเดือนทั้งหมดเรียบร้อยแล้ว (" . count($pendingRows) . " รายการ)", ['count' => count($pendingRows)]);
+            Response::json(200, "อนุมัติคำขอจองพนักงานรายวันทั้งหมดเรียบร้อยแล้ว (" . count($pendingRows) . " รายการ)", ['count' => count($pendingRows)]);
         } catch (Exception $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             Response::json(500, "Error approving month schedules: " . $e->getMessage());
@@ -649,11 +679,24 @@ class ScheduleController {
                 // Delete if exists (toggle off)
                 $delStmt = $this->db->prepare("DELETE FROM shop_closed_days WHERE closed_date = :cdate");
                 $delStmt->execute([':cdate' => $closedDate]);
+                
+                // Re-ensure monthly schedules
+                $this->ensureMonthlyStaffSchedules(substr($closedDate, 0, 7));
+
                 Response::json(200, "ยกเลิกวันปิดร้านเรียบร้อยแล้ว", ['status' => 'removed', 'closed_date' => $closedDate]);
             } else {
                 // Insert closed day
                 $insStmt = $this->db->prepare("INSERT INTO shop_closed_days (closed_date, reason, created_by) VALUES (:cdate, :reason, :by)");
                 $insStmt->execute([':cdate' => $closedDate, ':reason' => $reason, ':by' => $this->getUserId()]);
+
+                // Remove unverified monthly schedules on this closed day
+                $delSched = $this->db->prepare("DELETE ws FROM work_schedules ws 
+                    JOIN employees e ON e.employee_id = ws.employee_id 
+                    WHERE ws.work_date = :cdate 
+                      AND COALESCE(e.payment_frequency, 'Monthly') = 'Monthly' 
+                      AND ws.attendance_status = 'unverified'");
+                $delSched->execute([':cdate' => $closedDate]);
+
                 Response::json(200, "บันทึกแจ้งวันปิดร้านเรียบร้อยแล้ว", ['status' => 'added', 'closed_date' => $closedDate, 'reason' => $reason]);
             }
         } catch (Exception $e) {

@@ -343,7 +343,7 @@
                         <i class="fas fa-calendar-alt" style="color:#4D7C68"></i>
                         <span>ตารางงานพนักงานและการเข้างาน</span>
                     </h1>
-                    <p style="color:#64748b; margin-top: 6px; font-size: 14px; margin-bottom: 0;">ตรวจสอบตารางงานประจำวัน อนุมัติคำขอจองตารางงาน และเช็คชื่อการเข้าทำงานจริงของพนักงาน</p>
+                    <p style="color:#64748b; margin-top: 6px; font-size: 14px; margin-bottom: 0;">ตรวจสอบตารางงานประจำวัน อนุมัติคำขอจองตารางงานของพนักงานรายวัน และเช็คชื่อการเข้าทำงานจริงของพนักงาน</p>
                 </header>
 
                 <!-- Summary Cards -->
@@ -360,7 +360,7 @@
                         <div class="stat-icon" style="background:#ffedd5; color:#c2410c;"><i class="fas fa-clock"></i></div>
                         <div class="stat-info">
                             <h4 id="statPendingRequests">0</h4>
-                            <span>คำขอจองรออนุมัติ</span>
+                            <span>คำขอจองรออนุมัติ (รายวัน)</span>
                         </div>
                     </div>
 
@@ -388,8 +388,8 @@
                         <span>การจัดการตารางงานด่วน:</span>
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button onclick="approveAllPendingForMonth()" style="background: linear-gradient(135deg, #15803d, #166534); color: #ffffff; padding: 10px 18px; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 3px 8px rgba(21,128,61,0.25);" title="อนุมัติคำขอจองค้างอนุมัติเฉพาะพนักงานรายเดือนเท่านั้น (ไม่รวมพนักงานรายวัน)">
-                            <i class="fas fa-check-double"></i> อนุมัติคำขอจองพนักงานรายเดือนทั้งหมด
+                        <button onclick="approveAllPendingForMonth()" style="background: linear-gradient(135deg, #15803d, #166534); color: #ffffff; padding: 10px 18px; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 3px 8px rgba(21,128,61,0.25);" title="อนุมัติคำขอจองตารางงานที่ค้างอนุมัติของพนักงานรายวันทั้งหมดในเดือนนี้">
+                            <i class="fas fa-check-double"></i> อนุมัติคำขอจองพนักงานรายวันทั้งหมด
                         </button>
                         <button onclick="openClosedDayModal()" style="background: linear-gradient(135deg, #dc2626, #991b1b); color: #ffffff; padding: 10px 18px; font-weight: 800; border-radius: 12px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 3px 8px rgba(220,38,38,0.25);">
                             <i class="fas fa-store-slash"></i> แจ้งวันปิดร้าน / ตั้งวันหยุด
@@ -432,11 +432,11 @@
             </div>
 
             <div class="drawer-panel-body">
-                <!-- Section 1: คำขอจองตารางงาน (Booking Requests) -->
+                <!-- Section 1: คำขอจองตารางงานพนักงานรายวัน (Booking Requests) -->
                 <div class="section-box" style="border-left: 4px solid #f97316;">
                     <div class="section-box-title" style="color: #c2410c;">
                         <i class="fas fa-clock"></i>
-                        <span>1. คำขอจองตารางงาน (รออนุมัติ)</span>
+                        <span>1. คำขอจองตารางงานพนักงานรายวัน (รออนุมัติ)</span>
                     </div>
                     <div id="pendingRequestsContainer">
                         <!-- Rendered via JS -->
@@ -655,26 +655,21 @@
                 return `<option value="${e.employee_id}">${e.first_name} ${e.last_name} (${e.position || 'พนักงาน'}) [${freq}]</option>`;
             }).join('');
 
-            // Section 1: Pending Booking Requests
+            // Section 1: Pending Booking Requests (Daily Employees only)
             if (pendingList.length === 0) {
-                pendingContainer.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 6px 0;">ไม่มีคำขอจองตารางงานที่รออนุมัติในวันนี้</div>`;
+                pendingContainer.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 6px 0;">ไม่มีคำขอจองตารางงานของพนักงานรายวันที่รออนุมัติในวันนี้</div>`;
             } else {
                 pendingContainer.innerHTML = pendingList.map(item => {
-                    const isMonthly = item.payment_frequency === 'Monthly';
-                    const freqBadge = isMonthly ? 'รายเดือน' : 'รายวัน (พาร์ทไทม์)';
-                    const approveBtnText = isMonthly ? 'อนุมัติจอง (ทั้งเดือน)' : 'อนุมัติจอง (เฉพาะวันนี้)';
-                    const approveIcon = isMonthly ? 'fa-calendar-check' : 'fa-check';
-                    
                     return `
                         <div class="emp-schedule-item">
                             <div>
-                                <span class="emp-name-tag">${item.name} <small style="background:#f1f5f9; padding:2px 6px; border-radius:6px; font-weight:600; color:#475569;">${freqBadge}</small></span>
-                                <span class="emp-pos-tag">${item.position} | 🕒 เวลา: ${item.shift_name}</span>
+                                <span class="emp-name-tag">${item.name} <small style="background:#ffedd5; padding:2px 6px; border-radius:6px; font-weight:700; color:#c2410c;">พนักงานรายวัน (พาร์ทไทม์)</small></span>
+                                <span class="emp-pos-tag">${item.position || 'พนักงาน'} | 🕒 เวลาที่ขอจอง: ${item.shift_name}</span>
                                 ${item.notes ? `<small style="color:#d97706; display:block; margin-top:2px;">หมายเหตุ: ${item.notes}</small>` : ''}
                             </div>
                             <div style="display: flex; gap: 6px;">
                                 <button class="btn-act btn-approve" onclick="approveBookingAction(${item.schedule_id})">
-                                    <i class="fas ${approveIcon}"></i> ${approveBtnText}
+                                    <i class="fas fa-check"></i> อนุมัติจอง
                                 </button>
                                 <button class="btn-act btn-reject" onclick="rejectBookingAction(${item.schedule_id})">
                                     <i class="fas fa-times"></i> ปฏิเสธ
@@ -704,7 +699,7 @@
                                     ${item.name} <small style="background:#f1f5f9; padding:2px 6px; border-radius:6px; font-weight:600; color:#475569;">${freqBadge}</small>
                                 </div>
                                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                                    ${item.position} | 🕒 ${item.shift_name}
+                                    ${item.position || 'พนักงาน'} | 🕒 ${item.shift_name}
                                 </div>
                             </div>
                             <div>
@@ -866,12 +861,12 @@
             const monthName = thaiMonths[month - 1] + ' ' + (year + 543);
 
             const result = await Swal.fire({
-                title: `อนุมัติคำขอจองพนักงานรายเดือน?`,
-                text: `คุณต้องการอนุมัติคำขอจองค้างอนุมัติเฉพาะของพนักงานประเภทรายเดือนทั้งหมดในเดือน ${monthName} ใช่หรือไม่ (พนักงานรายวันจะไม่ได้รับผลกระทบ)`,
+                title: `อนุมัติคำขอจองพนักงานรายวันทั้งหมด?`,
+                text: `คุณต้องการอนุมัติคำขอจองตารางงานที่ค้างอนุมัติของพนักงานรายวันทั้งหมดในเดือน ${monthName} ใช่หรือไม่`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#15803d',
-                confirmButtonText: 'ยืนยันอนุมัติพนักงานรายเดือนทั้งหมด',
+                confirmButtonText: 'ยืนยันอนุมัติคำขอจองพนักงานรายวัน',
                 cancelButtonText: 'ยกเลิก'
             });
 
